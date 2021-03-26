@@ -22,6 +22,7 @@ import com.flipkart.ranger.ServiceFinderBuilders;
 import com.flipkart.ranger.finder.sharded.SimpleShardedServiceFinder;
 import com.flipkart.ranger.model.ServiceNode;
 import feign.ranger.common.ShardInfo;
+import feign.ranger.selector.HierarchicalEnvironmentAwareShardSelector;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
@@ -58,6 +59,7 @@ public class ServiceDiscoveryClient {
                     }
                     return null;
                 })
+                .withShardSelector(new HierarchicalEnvironmentAwareShardSelector())
                 .build();
     }
 
