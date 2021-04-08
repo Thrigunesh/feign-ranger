@@ -22,7 +22,7 @@ import com.flipkart.ranger.ServiceFinderBuilders;
 import com.flipkart.ranger.finder.sharded.SimpleShardedServiceFinder;
 import com.flipkart.ranger.model.ServiceNode;
 import feign.ranger.common.ShardInfo;
-import feign.ranger.selector.HierarchicalEnvironmentAwareShardSelector;
+import feign.ranger.selector.DynamicEnvironmentAwareShardSelector;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
@@ -59,7 +59,7 @@ public class ServiceDiscoveryClient {
                     }
                     return null;
                 })
-                .withShardSelector(new HierarchicalEnvironmentAwareShardSelector())
+                .withShardSelector(new DynamicEnvironmentAwareShardSelector())
                 .build();
     }
 
@@ -69,6 +69,10 @@ public class ServiceDiscoveryClient {
 
     public void stop() throws Exception {
         serviceFinder.stop();
+    }
+
+    public Optional<ServiceNode<ShardInfo>> getNode(String env) {
+        return Optional.ofNullable(serviceFinder.get(ShardInfo.builder().environment(env).build()));
     }
 
     public Optional<ServiceNode<ShardInfo>> getNode() {

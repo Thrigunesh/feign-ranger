@@ -17,15 +17,22 @@
 package feign.ranger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.flipkart.ranger.model.ServiceNode;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import feign.Request;
 import feign.RequestTemplate;
 import feign.Target;
 import feign.ranger.client.ServiceDiscoveryClient;
+import feign.ranger.common.ShardInfo;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.apache.curator.framework.CuratorFramework;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Optional;
 
 /**
  * @author phaneesh
@@ -46,20 +53,32 @@ public class RangerTarget<T> implements Target<T> {
 
     private final String fallbackAddress;
 
+    private final String defaultEnvironment;
+
+    private final String envHeaderName;
+
     public RangerTarget(final Class<T> type, final String environment, final String namespace, final String service,
                         final CuratorFramework curator, final boolean secured,
                         final ObjectMapper objectMapper) throws Exception {
-        this(type, environment, namespace, service, curator, secured, null, objectMapper);
+        this(type, environment, namespace, service, curator, secured, null, objectMapper, null, null);
+    }
+
+    public RangerTarget(final Class<T> type, final String environment, final String namespace, final String service,
+                        final CuratorFramework curator, final boolean secured,
+                        final ObjectMapper objectMapper, final String defaultEnvironment, final String envHeaderName) throws Exception {
+        this(type, environment, namespace, service, curator, secured, null, objectMapper, defaultEnvironment, envHeaderName);
     }
 
     public RangerTarget(final Class<T> type, final String environment, final String namespace, final String service,
                         final CuratorFramework curator, final boolean secured, final String fallbackAddress,
-                        final ObjectMapper objectMapper) throws Exception {
+                        final ObjectMapper objectMapper, final String defaultEnvironment, final String envHeaderName) throws Exception {
         this.type = type;
         this.secured = secured;
         this.service = service;
         this.curator = curator;
         this.fallbackAddress = fallbackAddress;
+        this.defaultEnvironment = defaultEnvironment;
+        this.envHeaderName = envHeaderName;
         client = ServiceDiscoveryClient.builder()
                 .curator(curator)
                 .environment(environment)
@@ -82,7 +101,7 @@ public class RangerTarget<T> implements Target<T> {
 
     @Override
     public String url() {
-        val node = client.getNode();
+        val node = client.getNode(defaultEnvironment);
         if(node.isPresent()) {
             return String.format("%s://%s:%d", secured ? "https" : "http", node.get().getHost(), node.get().getPort());
         }
@@ -99,12 +118,29 @@ public class RangerTarget<T> implements Target<T> {
     }
 
     public Request apply(RequestTemplate input) {
-        val node = client.getNode();
-        if(node == null || !node.isPresent()) {
-            throw new IllegalArgumentException("No service nodes found");
+        Optional<ServiceNode<ShardInfo>> node;
+        if (Strings.isNullOrEmpty(envHeaderName)) {
+            node = client.getNode();
+            checkNodes(node);
+        } else {
+            final Collection<String> env = input.headers().getOrDefault(envHeaderName, ImmutableSet.of(defaultEnvironment));
+            node = client.getNode(new ArrayList<>(env).get(0));
+            if(node == null || !node.isPresent()) {
+                node = client.getNode(defaultEnvironment);
+                checkNodes(node);
+            }
         }
+
+
         val url = String.format("%s://%s:%d", secured ? "https" : "http", node.get().getHost(), node.get().getPort());
         input.insert(0, url);
         return input.request();
+    }
+
+
+    private void checkNodes(Optional<ServiceNode<ShardInfo>> node) {
+        if(node == null || !node.isPresent()) {
+            throw new IllegalArgumentException("No service nodes found");
+        }
     }
 }

@@ -35,7 +35,7 @@ import java.util.NoSuchElementException;
 @ToString
 @Slf4j
 public class ShardInfo implements Iterable<ShardInfo> {
-    private static final String SEPARATOR = ".";
+    private static final String SEPARATOR = ",";
 
     private String environment;
 
@@ -64,10 +64,10 @@ public class ShardInfo implements Iterable<ShardInfo> {
                 throw new NoSuchElementException();
             }
             log.debug("Effective environment for discovery is {}", remainingEnvironment);
-            val shardInfo = new ShardInfo(remainingEnvironment);
             val sepIndex = remainingEnvironment.indexOf(SEPARATOR);
-            remainingEnvironment = sepIndex < 0 ? "" : remainingEnvironment.substring(0, sepIndex);
-            return shardInfo;
+            remainingEnvironment = sepIndex < 0 ? "" : remainingEnvironment.substring(sepIndex+1);
+            return new ShardInfo(Strings.isNullOrEmpty(remainingEnvironment)? remainingEnvironment :
+                    remainingEnvironment.substring(0, sepIndex));
         }
     }
 }

@@ -9,14 +9,11 @@ import feign.ranger.common.ShardInfo;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class HierarchicalEnvironmentAwareShardSelector implements ShardSelector<ShardInfo, MapBasedServiceRegistry<ShardInfo>> {
+public class DynamicEnvironmentAwareShardSelector implements ShardSelector<ShardInfo, MapBasedServiceRegistry<ShardInfo>> {
 
     private static final String ALL_ENV = "*";
 
@@ -30,12 +27,11 @@ public class HierarchicalEnvironmentAwareShardSelector implements ShardSelector<
         if (Objects.equals(environment, ALL_ENV)) {
             return allNodes(serviceNodes);
         }
-        for (ShardInfo shardInfo : criteria) {
-            val currentEnvNodes = serviceNodes.get(shardInfo);
-            if (!currentEnvNodes.isEmpty()) {
-                log.debug("Effective environment for discovery of {} is {}", serviceName, environment);
-                return currentEnvNodes;
-            }
+        final Collection<ServiceNode<ShardInfo>> currentEnvNodes = serviceNodes.asMap()
+                .get(criteria);
+        if (currentEnvNodes != null && !currentEnvNodes.isEmpty()) {
+            log.debug("Effective environment for discovery of {} is {}", serviceName, environment);
+            return new ArrayList<>(currentEnvNodes);
         }
         return Collections.emptyList();
     }
