@@ -16,19 +16,59 @@
 
 package feign.ranger.common;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.google.common.base.Strings;
+import lombok.*;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.validation.constraints.NotNull;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
- * @author phaneesh
+ * Basic shard info used for discovery.
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ShardInfo {
+@EqualsAndHashCode
+@ToString
+@Slf4j
+public class ShardInfo implements Iterable<ShardInfo> {
+    private static final String SEPARATOR = ",";
 
     private String environment;
+
+    @Override
+    @NotNull
+    public Iterator<ShardInfo> iterator() {
+        return new ShardInfoIterator(environment);
+    }
+
+    public static final class ShardInfoIterator implements Iterator<ShardInfo> {
+
+        private String remainingEnvironment;
+
+        private ShardInfoIterator(String remainingEnvironment) {
+            this.remainingEnvironment = remainingEnvironment;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return !Strings.isNullOrEmpty(remainingEnvironment);
+        }
+
+        @Override
+        public ShardInfo next() {
+            if(!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            log.debug("Effective environment for discovery is {}", remainingEnvironment);
+            val sepIndex = remainingEnvironment.indexOf(SEPARATOR);
+            remainingEnvironment = sepIndex < 0 ? "" : remainingEnvironment.substring(sepIndex+1);
+            return new ShardInfo(Strings.isNullOrEmpty(remainingEnvironment)? remainingEnvironment :
+                    remainingEnvironment.substring(0, sepIndex));
+        }
+    }
 }
+
